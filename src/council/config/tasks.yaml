@@ -1,0 +1,368 @@
+# src/council/config/tasks.yaml
+#
+# Placeholders
+# ------------
+#   {question}   the question being put to the council          (you supply this)
+#   {context}    background text; from --context, inline or a file (you supply this)
+#
+#   Filled in by the crews themselves (see crew.py _fill_inputs and
+#   sources.py prompt_inputs); never supplied by a person:
+#   {documents}             text of the files attached with --docs
+#   {documents_index}       one line per attached file
+#   {document_guidance}     what the moderator should do about documents
+#   {intake_brief}          the council brief (includes background + documents)
+#   {anonymized_responses}  advisor outputs relabelled Response A-E
+#
+# Four crews share this file (see crew.py):
+#   TriageCrew  = step 1       IntakeCrew = steps 2-4
+#   AdvisorCrew = steps 5-6    ReviewCrew = steps 7-10
+# flow.py runs them in order, stops right after triage on a rejection, and
+# anonymizes advisor outputs between steps 5 and 7.
+# Tasks marked "set in crew.py" get their context in code, because which
+# upstream tasks exist depends on the mode and the selected advisors.
+
+# =====================================================================
+# TRIAGE CREW (step 1)  and  INTAKE CREW (steps 2-4)
+# =====================================================================
+
+# ---- Step 1: Triage -------------------------------------------------
+triage:
+  agent: moderator
+  description: >
+    Decide whether this question deserves a council deliberation.
+
+    Question: {question}
+
+    Background from the user:
+    {context}
+
+    Documents attached:
+    {documents_index}
+
+    REJECT if the question is (a) purely factual, with a single verifiable answer,
+    (b) obvious, meaning any competent person would give the same answer,
+    (c) not a decision or judgment call, or (d) too vague to deliberate on
+    without clarification.
+    ACCEPT if it involves trade-offs, uncertainty, competing options, or
+    consequential judgment.
+    Do not reject as too vague when the background or attached documents
+    supply the missing detail.
+    If rejecting for reason (a) or (b), give the direct answer. If rejecting
+    for reason (d), give the clarifying questions the user should answer.
+  expected_output: >
+    A TriageResult: proceed (true/false), the rejection category if any,
+    a one-paragraph rationale, and either a direct answer or clarifying
+    questions when rejected.
+
+# ---- Step 2: Journal lookup ----------------------------------------
+journal_lookup:
+  agent: moderator
+  description: >
+    Search the council journal for prior runs on questions similar to:
+    "{question}"
+
+    Use the journal search tool. For each relevant prior run (at most 5),
+    report: run_id, date, the prior question, the recommendation reached,
+    any recorded outcome, and how similar it is to the current question.
+    Point out any lessons learned, especially cases where the council's
+    recommendation turned out wrong.
+    If nothing relevant exists, say so plainly. Do not invent prior runs.
+  expected_output: >
+    A short list of relevant prior runs with similarity notes and lessons,
+    or the statement "No relevant prior runs found."
+
+# ---- Step 3: Frame + Bias audit ------------------------------------
+frame_and_bias_audit:
+  agent: moderator
+  context: [journal_lookup]
+  description: >
+    Prepare the question for the council.
+
+    Question: {question}
+
+    Background from the user:
+    {context}
+
+    Documents attached to this question:
+    {documents}
+
+    1. EVIDENCE: {document_guidance}
+       Summarize what the background and documents say that bears on the
+       decision (figures, constraints, deadlines, commitments), naming the
+       source of each point. Then list the important information that is
+       still missing. The advisors will also see the background and documents
+       themselves, so focus on what matters rather than restating everything.
+    2. FRAMING: restate the decision in one neutral sentence. List the options
+       the user named, the stated constraints, the success criteria, and the
+       time horizon. Keep separate what the user said and what you inferred.
+    3. BIAS AUDIT: look at the wording and context for cognitive biases,
+       including anchoring, framing effects, confirmation bias, sunk cost,
+       status-quo bias, availability, overconfidence, and false dichotomy.
+       For each bias you find, quote the phrase that triggered it and
+       suggest a neutral rewording.
+  expected_output: >
+    A council brief containing: the neutral decision statement, the options,
+    constraints, success criteria and time horizon; the evidence from the
+    background and documents, with sources, and what is still missing; a
+    bias audit table (bias, evidence, neutral
+    rewording); and relevant lessons from the journal.
+
+# ---- Step 4: Mode selection ----------------------------------------
+mode_selection:
+  agent: moderator
+  context: [frame_and_bias_audit]
+  description: >
+    Choose the deliberation depth for this question:
+      QUICK    - low stakes, reversible, few options. Use 3 advisors, and
+                 skip decision science and debate.
+      STANDARD - moderate stakes or several options. Use 4-5 advisors,
+                 plus peer review and debate.
+      DEEP     - high stakes, hard to reverse, or high uncertainty. Use all
+                 5 advisors, decision science, peer review and debate.
+    For STANDARD mode, drop the advisor least suited to this question.
+    Pick the advisors from: red_team, first_principles, expansionist,
+    outsider, executor. Always include red_team and executor.
+    Justify the choice by referring to stakes, reversibility, and uncertainty.
+  expected_output: >
+    A ModeDecision: the mode, the list of selected advisors, and a rationale.
+
+# =====================================================================
+# ADVISOR CREW (steps 5-6)  and  REVIEW CREW (steps 7-10)
+# =====================================================================
+
+# ---- Step 5: Fan-out (run in parallel via async_execution) ---------
+# ANONYMITY RULE shared by all advisors: never name your role or methodology
+# label in the output, so that peer review stays blind.
+
+red_team_analysis:
+  agent: red_team
+  description: >
+    Council brief:
+    {intake_brief}
+
+    Run a pre-mortem. Assume the leading option has failed badly 12 months
+    from now. Write the three most plausible failure stories. Trace each one
+    backwards: symptom, then proximate cause, then root cause, then the
+    earliest warning sign. Rate each on likelihood (1-5) and severity (1-5).
+    Finish by naming the single assumption whose failure would do the most
+    damage.
+    Do not name your role or your method in the output.
+  expected_output: >
+    Three failure chains with likelihood and severity ratings, the
+    most dangerous assumption, and one mitigation for each chain.
+    Under 600 words.
+
+first_principles_analysis:
+  agent: first_principles
+  description: >
+    Council brief:
+    {intake_brief}
+
+    1. List the irreducible facts and hard constraints.
+    2. List the assumptions hidden in how the question is framed, and
+       classify each one as a genuine constraint, a convention, or unverified.
+    3. Build three independent reframings of the problem, each rebuilt only
+       from the verified fundamentals.
+    4. Evaluate each branch on soundness and usefulness. Prune explicitly,
+       and choose the strongest reframing.
+    Do not name your role or your method in the output.
+  expected_output: >
+    Fundamentals, an assumption table, three reframings with their
+    evaluations, and the selected reframing with what it implies for the
+    decision. Under 700 words.
+
+expansionist_analysis:
+  agent: expansionist
+  description: >
+    Council brief:
+    {intake_brief}
+
+    Generate options the user did NOT list. Use combination, inversion,
+    splitting, scaling up or down, re-sequencing, and do-nothing or defer.
+    Aim for at least 4 new options. Score every option, both the listed ones
+    and the new ones, on upside (1-10) and effort (1-10), and compute the
+    upside/effort ratio. Mark which options are new.
+    Do not name your role or your method in the output.
+  expected_output: >
+    A scored option list sorted by ratio, with a rationale for each score,
+    and new options clearly marked.
+
+outsider_analysis:
+  agent: outsider
+  description: >
+    Council brief:
+    {intake_brief}
+
+    Choose ONE field unrelated to this question's domain that has a method
+    you can transfer. Name the specific framework you are borrowing, map it
+    step by step onto this problem, and state the insights it produces that
+    a domain expert would probably miss. End with the point where the
+    analogy breaks down.
+    Do not name your role or your method in the output.
+  expected_output: >
+    The chosen field and framework, a step-by-step mapping, 2-4 insights
+    the domain would miss, and the limits of the analogy. Under 600 words.
+
+executor_analysis:
+  agent: executor
+  description: >
+    Council brief:
+    {intake_brief}
+
+    1. OODA: identify which stage the decision is in (Observe, Orient,
+       Decide, Act) and what it would take to move to the next stage.
+    2. RICE: score the leading candidate actions on Reach, Impact (0.25-3),
+       Confidence (0-1), and Effort (person-weeks). Show the arithmetic.
+    3. DATA AUDIT: list what is known, what is assumed, and what is missing.
+       For each gap, estimate how much it lowers confidence and the cheapest
+       way to close it.
+    Do not name your role or your method in the output.
+  expected_output: >
+    An ExecutorReport covering the OODA stage and rationale, the RICE table,
+    and the known, assumed, and missing data.
+
+# ---- Step 6: Decision science (DEEP mode only) ---------------------
+decision_science:
+  agent: decision_scientist
+  # context = the selected advisor tasks; set in crew.py
+  description: >
+    This runs only in DEEP mode. Build a structured comparison of the top
+    3-5 options drawn from the advisor outputs.
+    1. Define 4-6 weighted criteria taken from the brief's success criteria.
+       The weights must sum to 1.0.
+    2. Score each option against each criterion (1-10) and compute the
+       weighted totals.
+    3. Run a sensitivity check: which change in a single weight would flip
+       the winner?
+    4. Identify dominated options and remove them.
+    5. Note where the advisors' evidence conflicts with your scores.
+  expected_output: >
+    A DecisionMatrix: criteria and weights, the option-by-criterion score
+    table, weighted totals, the dominated options, the flip points from the
+    sensitivity analysis, and notes on conflicts.
+
+# ---- Step 7: Peer review (blind) + forced debate -------------------
+# The Flow relabels the advisor outputs as Response A-E in random order
+# and passes them in as {anonymized_responses}.
+
+peer_review_red_team: &peer_review
+  agent: red_team
+  description: >
+    Here are anonymized advisor responses to this question: "{question}"
+
+    Background from the user:
+    {context}
+
+    {anonymized_responses}
+
+    Review them blind. For each response, give its strongest point, its
+    weakest point, and any factual or logical error. Then rank all the
+    responses from most to least useful for making the decision, and explain
+    the ranking. Judge the reasoning, not the style. If you recognize your
+    own response, do not rank it first by default.
+  expected_output: >
+    A PeerReview containing a per-response critique, a full ranking, and
+    the single most important unresolved disagreement you see.
+
+peer_review_first_principles:
+  <<: *peer_review
+  agent: first_principles
+
+peer_review_expansionist:
+  <<: *peer_review
+  agent: expansionist
+
+peer_review_outsider:
+  <<: *peer_review
+  agent: outsider
+
+peer_review_executor:
+  <<: *peer_review
+  agent: executor
+
+forced_debate:
+  agent: moderator
+  # context = the selected peer-review tasks; set in crew.py
+  description: >
+    From the peer reviews, pick the TWO sharpest disagreements. For each one:
+    1. State both positions in their strongest form.
+    2. Ask the advisors who hold each position to defend it and to answer the
+       strongest counterargument directly (use the delegation tools). Question
+       advisors only: the chairs and the clerk take no part in the debate.
+       Ask each side at most two questions.
+    3. Hold them to it: no hedging and no "both have merit." Each side must
+       concede a point or give a concrete reason not to.
+    4. Record who conceded what, and what is still unresolved.
+    Also combine the peer rankings into an aggregate ranking (average rank).
+  expected_output: >
+    The aggregate peer ranking; a transcript of each debate (positions,
+    challenges, rebuttals, concessions); and the disagreements that remain
+    unresolved.
+
+# ---- Step 8: Dual chairman -----------------------------------------
+consensus_synthesis:
+  agent: consensus_chair
+  # context = forced_debate, or the peer reviews in QUICK mode; set in crew.py
+  description: >
+    Council brief:
+    {intake_brief}
+
+    Using the debate, the peer rankings, and the decision matrix if one
+    exists (it appears in the brief for DEEP runs), write the council's
+    recommendation. It should state what the council broadly agrees on, the
+    recommended course of action, the conditions under which to revisit it,
+    and the first three concrete next steps. Give a confidence level from 0
+    to 100 and justify it.
+  expected_output: >
+    The consensus recommendation, confidence with justification, revisit
+    triggers, and three next steps. Under 500 words.
+
+dissent_synthesis:
+  agent: dissent_chair
+  # context = forced_debate, or the peer reviews in QUICK mode; set in crew.py
+  description: >
+    Council brief:
+    {intake_brief}
+
+    Write the minority report. Present the strongest case AGAINST the
+    emerging consensus, drawing on the concessions that were never made and
+    the disagreements left unresolved in the debate. Name the scenario in
+    which the dissent turns out right, and the cheapest early signal that
+    would show it. Do not argue against the consensus for the sake of it; if
+    the dissent is weak, say so and explain why.
+  expected_output: >
+    A minority report: the strongest counter-case, the scenario in which it
+    is right, early warning signals, and a candid rating of the dissent's
+    strength (weak, moderate, or strong).
+
+# ---- Step 9: Generate outputs --------------------------------------
+html_report:
+  agent: moderator
+  context: [consensus_synthesis, dissent_synthesis]
+  description: >
+    Produce a self-contained HTML report (inline CSS, no external assets)
+    for this council run. Include these sections: the question, a summary of the
+    bias audit, the mode, the consensus recommendation with a confidence
+    badge, the minority report, the aggregate peer ranking, the debate
+    highlights, the decision matrix (DEEP runs only), next steps, and a
+    Sources section listing the documents the council was given:
+    {documents_index}
+    Output only HTML, starting at <!DOCTYPE html>.
+  expected_output: >
+    A complete, valid HTML document.
+
+# flow.py saves the report to output/<run_id>/report.html and assembles the
+# markdown transcript in code from every task's raw output, so the
+# transcript stays verbatim rather than being rewritten by an LLM.
+
+# ---- Step 10: Journal record ---------------------------------------
+journal_record:
+  agent: moderator
+  context: [consensus_synthesis, dissent_synthesis]
+  description: >
+    Summarize this run for the council journal: a one-sentence
+    recommendation, the confidence (0-100), a one-sentence dissent, and the
+    revisit triggers. The flow adds the run id, date, question, mode and
+    advisors itself and writes the record; do not write any files.
+  expected_output: >
+    A JournalEntry object.

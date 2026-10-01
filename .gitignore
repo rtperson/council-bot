@@ -1,0 +1,9 @@
+.env
+__pycache__/
+.DS_Store
+.crewai/
+output/
+journal/
+workspace/
+council_flow.html
+_to_delete/

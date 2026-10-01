@@ -1,0 +1,41 @@
+[project]
+name = "council"
+version = "0.1.0"
+description = "A council of AI agents that deliberates on a question"
+authors = [{ name = "Roger", email = "roger@gatheringability.com" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "crewai[tools]>=1.15.23,<2.0.0",
+    # Reading attached documents. All three already come with crewai[tools];
+    # listed here so they stay available if that ever changes.
+    "pdfplumber>=0.11",
+    "python-docx>=1.2",
+    "openpyxl>=3.1",
+]
+
+[project.scripts]
+council = "council.main:kickoff"
+kickoff = "council.main:kickoff"
+run_crew = "council.main:kickoff"
+triage = "council.main:triage"
+outcome = "council.main:outcome"
+plot = "council.main:plot"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "flow"
+project_id = "ffef6ab9-62a9-4668-9759-35f6c3e766a9"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore:method callbacks cannot be serialized",
+    "ignore::DeprecationWarning:crewai.*",
+    "ignore::DeprecationWarning:crewai_tools.*",
+]

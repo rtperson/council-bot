@@ -17,7 +17,7 @@ from council.crew import (
 )
 from council.flow import CouncilFlow
 from council.journal import read_entries
-from council.local_models import LocalModelError, check_ollama, ollama_host
+from council.preflight import PreflightError, check_ollama
 from council.usage import BudgetExceeded
 
 from fake_council_model import reply as good_model
@@ -143,9 +143,9 @@ def test_ollama_check_passes_when_ready(ollama):
     assert check_ollama() == ["fake-model"]
 
 
-def test_ollama_check_explains_a_missing_model(ollama, monkeypatch):
+def test_ollama_check_explains_a_missing_model(ollama):
     ollama(models=("llama3.1:8b",))
-    with pytest.raises(LocalModelError, match="ollama pull fake-model"):
+    with pytest.raises(PreflightError, match="ollama pull fake-model"):
         check_ollama()
 
 
@@ -157,7 +157,7 @@ def test_ollama_check_accepts_latest_tag(ollama):
 def test_ollama_check_explains_when_ollama_is_not_running(monkeypatch):
     monkeypatch.setenv("COUNCIL_MODEL", "ollama/qwen3:14b")
     monkeypatch.setenv("OLLAMA_HOST", "http://127.0.0.1:9")      # nothing listens here
-    with pytest.raises(LocalModelError, match="Can't reach Ollama"):
+    with pytest.raises(PreflightError, match="Can't reach Ollama at http://127.0.0.1:9/v1"):
         check_ollama(timeout=1)
 
 
@@ -165,15 +165,3 @@ def test_ollama_check_skips_hosted_models(monkeypatch):
     monkeypatch.setenv("COUNCIL_MODEL", "openai/gpt-5.4-mini")
     monkeypatch.setenv("OLLAMA_HOST", "http://127.0.0.1:9")
     assert check_ollama() == []
-
-
-@pytest.mark.parametrize("value, expected", [
-    ("http://localhost:11434/v1", "http://localhost:11434"),
-    ("localhost:11434", "http://localhost:11434"),
-    ("127.0.0.1", "http://127.0.0.1:11434"),
-    ("http://gpu-box:11434/", "http://gpu-box:11434"),
-])
-def test_ollama_address_forms(monkeypatch, value, expected):
-    monkeypatch.delenv("OLLAMA_HOST", raising=False)
-    monkeypatch.setenv("OLLAMA_BASE_URL", value)
-    assert ollama_host() == expected

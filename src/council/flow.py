@@ -31,6 +31,7 @@ from pydantic import BaseModel, PrivateAttr
 
 from .crew import ADVISORS, AdvisorCrew, IntakeCrew, ReviewCrew, TriageCrew
 from .journal import append_entry
+from .models import render_for_transcript
 from .usage import BudgetExceeded, UsageMeter, activate
 from .sources import (
     WORKSPACE_HINT,
@@ -164,7 +165,8 @@ class CouncilFlow(Flow[CouncilState]):
     def _log(self, step: str, result) -> None:
         for t in result.tasks_output:
             agent = (t.agent or "").strip()
-            self.state._transcript.append({"step": step, "task": t.name, "agent": agent, "output": t.raw})
+            output = render_for_transcript(t.pydantic) if t.pydantic is not None else t.raw
+            self.state._transcript.append({"step": step, "task": t.name, "agent": agent, "output": output})
 
     def _load_sources(self) -> None:
         """Read background and documents before any model is called; a bad path fails here."""
@@ -298,7 +300,8 @@ class CouncilFlow(Flow[CouncilState]):
         html = re.sub(r"^```(?:html)?\s*|\s*```$", "", out["html_report"].raw.strip())
         (run_dir / "report.html").write_text(html, encoding="utf-8")
 
-        # Step 9b: verbatim transcript
+        # Step 9b: transcript. Prose is copied as written. Structured outputs
+        # are rendered as markdown from the same fields, with no extra model call.
         self._write_transcript(run_dir)
 
         # Step 10: journal. The LLM supplies the content; code supplies identity and outcome fields.

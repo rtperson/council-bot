@@ -105,9 +105,10 @@ $env:COUNCIL_MODEL = "ollama/qwen3:14b"      # or put COUNCIL_MODEL=ollama/qwen3
 uv run council "Should we ...?" --mode quick
 ```
 
-Before the run starts, the command checks that Ollama is running and has the
-model, and tells you the `ollama pull` command if not. Ollama is found at
-`OLLAMA_HOST`, or `OLLAMA_BASE_URL`, or `localhost:11434` by default.
+Ollama is found at `OLLAMA_HOST` (default `localhost:11434`); CrewAI doesn't
+read `OLLAMA_BASE_URL`. Before the run starts, the command checks that Ollama
+is answering there and has the model, and tells you the `ollama pull` command
+if not.
 
 **Raise Ollama's context window first.** By default Ollama gives a model
 4,096 tokens of context on machines with less than 24 GB of VRAM, and when a
@@ -164,7 +165,7 @@ Dry runs write to `output/dry-run/` and `journal/dry-run.jsonl` instead.
 | `COUNCIL_WORKSPACE` | Shared folder the moderator checks when no `--docs` are given (default `./workspace`) |
 | `COUNCIL_DOC_BUDGET` | Characters of document text included in each advisor's brief (default 30000) |
 | `COUNCIL_MAX_TOKENS` | Stop a run past this many tokens (default 500000; 0 = no limit) |
-| `OLLAMA_HOST` / `OLLAMA_BASE_URL` | Where Ollama runs (default `localhost:11434`) |
+| `OLLAMA_HOST` | Where Ollama runs (default `localhost:11434`) |
 | `COUNCIL_VERBOSE=0` | Hide agent-by-agent logging (same as `--quiet`)          |
 
 ## How it's built

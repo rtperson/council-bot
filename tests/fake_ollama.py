@@ -2,7 +2,7 @@
 A stand-in for a local Ollama server, for tests.
 
 Speaks the parts of the API the council uses: the OpenAI-compatible
-/v1/chat/completions endpoint (what CrewAI calls) and /api/tags (what the
+/v1/chat/completions endpoint (what CrewAI calls) and /v1/models (what the
 command line checks before a run). Every request is recorded, and a `reply`
 function decides each response, so a test can play a well-behaved model or
 one that never stops calling tools.
@@ -52,8 +52,8 @@ class FakeOllama:
                 self.wfile.write(data)
 
             def do_GET(self):
-                if self.path.rstrip("/") == "/api/tags":
-                    self._send({"models": [{"name": m, "model": m} for m in server.models]})
+                if self.path.rstrip("/") == "/v1/models":
+                    self._send({"object": "list", "data": [{"id": m, "object": "model"} for m in server.models]})
                 else:
                     self._send({"error": "not found"}, 404)
 

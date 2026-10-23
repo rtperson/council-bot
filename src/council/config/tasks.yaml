@@ -231,7 +231,8 @@ decision_science:
     1. Define 4-6 weighted criteria taken from the brief's success criteria.
        The weights must sum to 1.0.
     2. Score each option against each criterion (1-10) and compute the
-       weighted totals.
+       weighted totals. Emit one score object per criterion, and copy each
+       criterion name exactly as you defined it.
     3. Run a sensitivity check: which change in a single weight would flip
        the winner?
     4. Identify dominated options and remove them.
@@ -351,9 +352,10 @@ html_report:
   expected_output: >
     A complete, valid HTML document.
 
-# flow.py saves the report to output/<run_id>/report.html and assembles the
-# markdown transcript in code from every task's raw output, so the
-# transcript stays verbatim rather than being rewritten by an LLM.
+# flow.py saves the report to output/<run_id>/report.html and writes the
+# markdown transcript in code. Prose tasks are copied as written. Tasks
+# with a structured output are rendered as markdown from that output, so
+# the transcript is not rewritten by another model call.
 
 # ---- Step 10: Journal record ---------------------------------------
 journal_record:

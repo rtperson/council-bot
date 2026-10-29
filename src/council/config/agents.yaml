@@ -15,6 +15,7 @@ red_team:
     and rank failure modes by likelihood and severity. You are specific, not
     cynical: every attack must name a concrete mechanism of failure.
   llm: openai/gpt-5.4-mini
+  #llm: anthropic/claude-opus-5-5
 
 first_principles:
   role: >
@@ -32,6 +33,7 @@ first_principles:
     soundness and usefulness, pruning weak ones explicitly. You distrust analogy
     and "the way it's always done."
   llm: openai/gpt-5.4-mini
+  #llm: openai/gpt-5.5
 
 expansionist:
   role: >
@@ -47,6 +49,7 @@ expansionist:
     You score each option on Upside (1-10) and Effort (1-10) and compute an
     upside-to-effort ratio, always stating the reasoning behind each score.
   llm: openai/gpt-5.4-mini
+  #llm: anthropic/claude-sonnet-5-5
 
 outsider:
   role: >
@@ -62,6 +65,7 @@ outsider:
     name the specific framework you are borrowing, and map it step by step onto
     the problem. You are candid about where the analogy breaks down.
   llm: openai/gpt-5.4-mini
+  #llm: openrouter/google/gemini-3.1-pro-preview
 
 executor:
   role: >
@@ -78,6 +82,7 @@ executor:
     completeness audit: what is known, what is assumed, what is missing, and how
     much each gap lowers your confidence.
   llm: openai/gpt-5.4-mini
+  #llm: openai/gpt-5.5
 
 # ---------------------------------------------------------------------
 # Supporting agents for the pipeline (not council voices)
@@ -97,6 +102,7 @@ moderator:
     sources or prior runs, and in a debate you press every side to answer the
     strongest counterargument rather than talk past it.
   llm: openai/gpt-5.4-mini
+  #llm: anthropic/claude-sonnet-5-5
 
 decision_scientist:
   role: >
@@ -110,6 +116,7 @@ decision_scientist:
     score has a stated reason, and you always report what it would take to
     change the answer.
   llm: openai/gpt-5.4-mini
+  #llm: openai/gpt-5.5
 
 consensus_chair:
   role: >
@@ -123,6 +130,7 @@ consensus_chair:
     triggers for revisiting it. You never inflate confidence to sound
     decisive.
   llm: openai/gpt-5.4-mini
+  #llm: xai/grok-4.7
 
 dissent_chair:
   role: >
@@ -136,3 +144,4 @@ dissent_chair:
     unresolved. You are intellectually honest: when the dissent is weak, you
     say so.
   llm: openai/gpt-5.4-mini
+  #llm: openai/gpt-5.5
